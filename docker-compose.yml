@@ -103,18 +103,31 @@ services:
       - proxy-net
     restart: unless-stopped
 
+  # --- SERVICIO UTILITARIO (Patrón Init Container) ---
+  # Este contenedor arranca, arregla los permisos de la carpeta y se apaga automáticamente.
+  fix-grafana-perms:
+    image: alpine:latest
+    container_name: fix-grafana-perms
+    command: chown -R 472:472 /var/lib/grafana
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+    network_mode: none # No necesita internet, solo acceso al disco
+    
+  # --- GRAFANA ---
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
-      # Ajusta esto a tu dominio real
       - GF_SERVER_ROOT_URL=https://grafana.orwinzavaleta.dpdns.org
       - GF_SERVER_DOMAIN=grafana.orwinzavaleta.dpdns.org
       - VIRTUAL_HOST=grafana.orwinzavaleta.dpdns.org
       - VIRTUAL_PORT=3000
     volumes:
       - ./grafana_data:/var/lib/grafana
+    depends_on:
+      fix-grafana-perms:
+        condition: service_completed_successfully
     networks:
       - monitoring-net
       - proxy-net
