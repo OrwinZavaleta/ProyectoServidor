@@ -1,10 +1,10 @@
 # Plataforma de Despliegue Automatizada (Zero Configuration)
 
-Este proyecto implementa una infraestructura basada en Docker para el alojamiento de aplicaciones web con despliegue automatizado. La solución utiliza un proxy inverso dinámico, un túnel seguro para saltar restricciones de red (como CGNAT) y un stack completo de monitorización para asegurar la disponibilidad de los servicios.
+Este proyecto implementa una infraestructura basada en Docker para el alojamiento de aplicaciones web con despliegue automatizado. La solución utiliza un proxy inverso dinámico, un túnel seguro de Cloudflare para saltar restricciones de red (como CGNAT) y un stack completo de monitorización para asegurar la visibilidad de los servicios.
 
 ## 📋 Tabla de Contenidos
 1. [Requisitos de Red](#requisitos-de-red)
-2. [Gestión de Usuarios](#gestión-de-usuarios)
+2. [Gestión de Usuarios (Automatizada)](#gestión-de-usuarios-automatizada)
 3. [Despliegue de Aplicaciones](#despliegue-de-aplicaciones)
 4. [Dominios y Certificados SSL](#dominios-y-certificados-ssl)
 5. [Monitorización de Métricas](#monitorización-de-métricas)
@@ -14,112 +14,99 @@ Este proyecto implementa una infraestructura basada en Docker para el alojamient
 
 ## 🌐 Requisitos de Red
 
-Para el correcto funcionamiento de la plataforma en entornos restringidos (como redes móviles o redes detrás de cortafuegos estrictos), se han definido los siguientes requisitos:
+Para el correcto funcionamiento de la plataforma en entornos restringidos (redes móviles o redes corporativas), se han definido los siguientes requisitos:
 
 *   **Conectividad Saliente:** El servidor requiere acceso a internet para establecer la conexión con el túnel de Cloudflare.
 *   **Puertos Internos (Docker):**
-    *   `80/443`: Gestionados internamente por `nginx-proxy`.
-    *   `22`: Para acceso administrativo vía SSH.
-    *   `9000`: Interfaz de Portainer.
-    *   `3000`: Panel de Grafana.
-*   **Arquitectura de Túnel:** No es necesaria la apertura de puertos en el router (Port Forwarding) ni disponer de una IP pública dedicada, ya que la comunicación se realiza mediante un túnel cifrado de salida.
+    *   `80/443`: Gestionados internamente por `nginx-proxy`. No requieren apertura en el router.
+    *   `22`: Puerto SSH para administración y subida de archivos (SCP).
+*   **Arquitectura de Túnel:** La comunicación se realiza mediante un túnel cifrado de salida, eliminando la necesidad de IP pública dedicada o Port Forwarding.
 
 ---
 
-## 👥 Gestión de Usuarios
+## 👥 Gestión de Usuarios (Automatizada)
 
-Para garantizar la seguridad y la trazabilidad, se recomienda el uso de usuarios con permisos limitados para el despliegue de aplicaciones.
+La creación de cuentas para alumnos o despliegues secundarios se realiza mediante un script de automatización que garantiza que el entorno tenga los permisos y la estructura de carpetas necesaria.
 
-### Crear un nuevo usuario de sistema
+### Crear un nuevo usuario
+Para dar de alta a un alumno, ejecuta el script proporcionado con privilegios de root:
+
 ```bash
-sudo adduser nombre_usuario
+sudo ./setup_deploy_user_easy.sh <nombre_usuario>
 ```
 
-### Configuración de acceso SSH
-Para permitir que el usuario pueda subir archivos mediante SCP y gestionar sus propios contenedores, debe pertenecer al grupo `docker`:
-```bash
-sudo usermod -aG docker nombre_usuario
-```
+**Este script realiza automáticamente:**
+1.  Creación del usuario con shell `/bin/bash`.
+2.  Configuración de la contraseña por defecto: `1234`.
+3.  Asignación al grupo `docker` para permitir la gestión de contenedores sin sudo.
+4.  Creación del directorio de trabajo: `/home/<usuario>/apps`.
 
 ---
 
 ## 🚀 Despliegue de Aplicaciones
 
-La plataforma está diseñada para que el despliegue sea "Zero Configuration". El usuario solo debe cumplir con el "Contrato de Infraestructura" en su archivo `docker-compose.yml`.
+El despliegue está optimizado para ser un proceso de "Subir y Arrancar" (Copy & Up).
 
-### Pasos mínimos para desplegar:
-1.  Subir los archivos del proyecto al servidor mediante `scp`.
-2.  Definir el servicio en un archivo `docker-compose.yml` asegurando que:
-    *   Esté conectado a la red externa `apps-net`.
-    *   Defina la variable `VIRTUAL_HOST` con el subdominio deseado.
-    *   Defina el `VIRTUAL_PORT` si la app no escucha en el puerto 80.
+### Flujo de trabajo para el alumno:
+1.  **Subir archivos:** Utilizar SCP para mover el proyecto a la carpeta de aplicaciones.
+    ```bash
+    scp -r ./mi-proyecto usuario@ip-servidor:~/apps/
+    ```
+2.  **Preparar el Docker Compose:** El archivo debe conectarse a la red `apps-net` (externa) y definir su dominio.
+    ```yaml
+    services:
+      web:
+        image: nginx:alpine
+        environment:
+          - VIRTUAL_HOST=alumno.orwinzavaleta.dpdns.org
+        networks:
+          - apps-net
 
-**Ejemplo de configuración para el alumno:**
-```yaml
-services:
-  web:
-    image: nginx:alpine
-    environment:
-      - VIRTUAL_HOST=mi-app.orwinzavaleta.dpdns.org
     networks:
-      - apps-net
-
-networks:
-  apps-net:
-    external: true
-```
+      apps-net:
+        external: true
+    ```
+3.  **Lanzar:** Acceder por SSH y ejecutar `docker compose up -d`.
 
 ---
 
 ## 🔒 Dominios y Certificados SSL
 
-La gestión de dominios y cifrado se ha centralizado en **Cloudflare Zero Trust** para evitar la complejidad y los fallos comunes de Let's Encrypt en redes privadas.
+La gestión de seguridad se ha centralizado en **Cloudflare Zero Trust** para evitar colisiones de certificados locales.
 
-*   **Certificados:** Se gestionan automáticamente en el "Edge" de Cloudflare. El tráfico viaja cifrado hasta la red de Cloudflare y de ahí al servidor mediante el túnel (`cloudflared`).
-*   **Añadir un dominio:**
-    1.  Configurar un **Public Hostname** en el panel de Cloudflare Tunnels apuntando a `http://nginx-proxy:80`.
-    2.  Utilizar un registro **Wildcard** (`*`) para permitir que cualquier subdominio nuevo sea reconocido por el proxy sin intervención manual.
+*   **SSL:** Cloudflare gestiona el cifrado de extremo a extremo. El túnel establece una conexión gRPC segura hacia el Edge de Cloudflare.
+*   **Wildcard DNS:** Se ha configurado un registro comodín (`*`) que apunta al túnel. Esto permite que cualquier subdominio nuevo definido en un `VIRTUAL_HOST` sea accesible instantáneamente sin intervención del administrador.
 
 ---
 
 ## 📊 Monitorización de Métricas
 
-La plataforma incluye un stack de visibilidad en tiempo real:
+La plataforma monitoriza el estado de la máquina y los contenedores para prevenir saturación de CPU/RAM:
 
-*   **Prometheus:** Recolecta métricas del sistema y de los contenedores cada 30 segundos (intervalo optimizado para ahorro de CPU).
-*   **Grafana:** Visualización de datos.
+*   **Prometheus:** Recolecta métricas cada 30 segundos (intervalo optimizado).
+*   **Grafana:** Panel de control visual.
     *   **URL:** `https://grafana.orwinzavaleta.dpdns.org`
-    *   **Acceso:** Usuario `admin` / Password configurada en `.env`.
-*   **Node Exporter:** Proporciona métricas de hardware (CPU, RAM, Disco) del host Linux.
+    *   **Credenciales:** Ver archivo `.env` para contraseña de `admin`.
+*   **Node Exporter:** Analiza el hardware del host ignorando sistemas de archivos de Docker para reducir el uso de recursos.
 
 ---
 
 ## 🛠️ Mantenimiento Básico
 
-Comandos esenciales para la administración de la plataforma:
-
-### Arrancar y parar la plataforma
+### Comandos de Administración
 ```bash
-# Iniciar todos los servicios en segundo plano
+# Iniciar toda la infraestructura
 docker compose up -d
 
-# Detener todos los servicios
+# Detener servicios sin borrar contenedores
 docker compose stop
 
-# Detener y eliminar contenedores y redes
-docker compose down
+# Reinicio tras cambios en el archivo .env o YAML
+docker compose up -d --force-recreate
 ```
 
-### Actualización de servicios
-Para actualizar la infraestructura a la última versión de las imágenes:
-```bash
-docker compose pull
-docker compose up -d --build
-```
-
-### Verificación de logs
-En caso de fallo en algún servicio, consultar los logs es el primer paso:
-```bash
-docker logs -f cloudflared    # Para problemas de conexión externa
-docker logs -f nginx-proxy    # Para problemas de enrutamiento de dominios
-```
+### Gestión de Errores
+Si un servicio no es accesible tras el despliegue, verificar los logs en orden:
+1.  `docker logs cloudflared` (Estado del túnel).
+2.  `docker logs nginx-proxy` (Mapeo de dominios).
+3.  `docker stats` (Uso de recursos en tiempo real).
