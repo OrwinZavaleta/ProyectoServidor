@@ -52,13 +52,16 @@ El despliegue está optimizado para ser un proceso de "Subir y Arrancar" (Copy &
     ```bash
     scp -r ./mi-proyecto usuario@ip-servidor:~/apps/
     ```
-2.  **Preparar el Docker Compose:** El archivo debe conectarse a la red `apps-net` (externa) y definir su dominio.
+2.  **Preparar el Docker Compose:** El archivo debe conectarse a la red `apps-net` (externa) y definir su dominio y su puerto si no se usa el por defecto.
     ```yaml
     services:
       web:
-        image: nginx:alpine
+        build: .
+        container_name: ${ALUMNO}-app
+        restart: unless-stopped
         environment:
-          - VIRTUAL_HOST=alumno.orwinzavaleta.dpdns.org
+          - VIRTUAL_HOST=${ALUMNO}.orwinzavaleta.dpdns.org
+          - VIRTUAL_PORT=80
         networks:
           - apps-net
 
