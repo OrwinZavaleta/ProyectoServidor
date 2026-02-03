@@ -7,7 +7,7 @@ Este proyecto implementa una infraestructura basada en Docker para el alojamient
 2. [Gestión de Usuarios (Automatizada)](#gestión-de-usuarios-automatizada)
 3. [Despliegue de Aplicaciones](#despliegue-de-aplicaciones)
 4. [Dominios y Certificados SSL](#dominios-y-certificados-ssl)
-5. [Monitorización de Métricas](#monitorización-de-métricas)
+5. [Monitorización de Métricas](#verificación-de-monitorización)
 6. [Mantenimiento Básico](#mantenimiento-básico)
 
 ---
