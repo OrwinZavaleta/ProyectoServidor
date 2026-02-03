@@ -91,6 +91,13 @@ Para demostrar el cumplimiento de los requisitos, se han implementado dos canale
 
 Todos estos datos son consultables de forma agregada en Grafana (`https://grafana.orwinzavaleta.dpdns.org`).
 
+### 🔧 Gestión Automática de Permisos (Self-Healing)
+El servicio de Grafana requiere permisos específicos de usuario (ID 472) para escribir en su base de datos SQLite. Para mantener la filosofía "Zero Configuration" y evitar comandos manuales (`chown`) en el host:
+
+1.  Se ha implementado un contenedor efímero `fix-grafana-perms` (basado en Alpine Linux).
+2.  Este servicio se ejecuta previo al arranque de Grafana, ajustando los permisos del volumen `./grafana_data` automáticamente.
+3.  Esto garantiza que el despliegue funcione en cualquier máquina host independientemente de su configuración de usuarios nativa.
+
 ---
 
 ## 🛠️ Mantenimiento Básico
