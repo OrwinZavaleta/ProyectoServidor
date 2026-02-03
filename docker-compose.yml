@@ -31,6 +31,7 @@ services:
       - /var/run/docker.sock:/tmp/docker.sock:ro
       - ./nginx/vhost:/etc/nginx/vhost.d
       - ./nginx/html:/usr/share/nginx/html
+      - ./nginx/status.conf:/etc/nginx/conf.d/status.conf:ro
     environment:
       # Optimizaciones para evitar errores 502/504 en apps pesadas
       - PROXY_BUFFERS_NUMBER=16
@@ -39,6 +40,17 @@ services:
     networks:
       - proxy-net
       - apps-net
+    restart: unless-stopped
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    command:
+      - '-nginx.scrape-uri=http://nginx-proxy:8080/stub_status'
+    networks:
+      - monitoring-net
+      - proxy-net
+    depends_on:
+      - nginx-proxy
     restart: unless-stopped
 
   # --- 3. (LEGACY) COMPAÑERO DE LET'S ENCRYPT ---
