@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meals 2 meet</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="./css/style.css"/></head>
+<body class="d-flex flex-column min-vh-100">
+<header class="bg-body-tertiary"><div class="container py-3 px-3 d-flex justify-content-between">
+<a class="fs-3 text-decoration-none text-black fw-bold" href="index.html">Meals to meet</a>
+<div class="d-flex align-items-center gap-3 d-none" id="menu-auth">
+<!-- AUTH -->
+<span id="username">User</span> <!-- TODO: el nombre se muestra dinamicamente -->
+<a href="#" class="text-decoration-none text-black btn btn-outline-secondary" id="logout"><i class="bi bi-box-arrow-right me-2"></i>Cerrar Sesión</a>
+</div>
+<div class="d-flex align-items-center gap-3" id="menu-guest">
+<!-- GUEST -->
+<a href="#" class="text-decoration-none text-black btn btn-outline-secondary" id="login" data-bs-toggle="modal" data-bs-target="#loginOut"><i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión</a>
+<a href="#" class="text-decoration-none text-black btn btn-outline-secondary" id="register" data-bs-toggle="modal" data-bs-target="#loginOut"><i  class="bi bi-person-plus me-2"></i>Registrarse</a>
+</div>
+</div></header>
+<main class="flex-grow-1">
+<div id="pageStatus" class="py-3 d-none container"></div>
+<div class="container py-3">
+  <div class="row pb-3 justify-content-md-between"><div class="col-md-4">
+<label for="categories" class="form-label">Categorías</label>
+<select class="form-select" id="categories" name="categories">
+<option selected value="">Todas las categorías</option>
+</select>
+</div>
+<div class="col-md-4 text-end align-self-end" id="botonFavoritos">
+<button type="submit" class="btn btn-outline-primary px-4" id="fijarCategoria">Favorita</button>
+</div>
+  </div><div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4 pb-3" id="aleatorioshome">
+</div>
+<div class="pb-3" id="contenedorFavoritos">
+  <h2>Platos Favoritos</h2><div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4" id="platosFavoritos">
+  <p>No hay ninguna receta guardada</p></div>
+</div>
+</div></main>
+<footer class="bg-body-tertiary py-3 mt-auto">
+<div class="container">Footer de la app</div></footer>
+<!-- Modal -->
+<div class="modal fade" id="loginOut" tabindex="-1" aria-labelledby="loginOutLabel" aria-hidden="true">
+<div class="modal-dialog modal-dialog-centered">
+<div class="modal-content py-3">
+<div class="modal-header py-0 justify-content-center">
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+<li class="nav-item" role="presentation">
+<button class="nav-link px-5 active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login-tab-pane" type="button" role="tab" aria-controls="login-tab-pane" aria-selected="true">Iniciar Sesión</button>
+</li>
+<li class="nav-item" role="presentation">
+<button class="nav-link px-5" id="register-tab" data-bs-toggle="tab" data-bs-target="#register-tab-pane" type="button" role="tab" aria-controls="register-tab-pane" aria-selected="false">Registrarse</button>
+</li>
+</ul>
+</div>
+<div class="modal-body">
+<div class="tab-content" id="myTabContent">
+<div class="tab-pane fade show active" id="login-tab-pane" role="tabpanel" aria-labelledby="login-tab" tabindex="0">
+<form id="loginForm" class="needs-validation" novalidate>
+<!-- Correo Electrónico -->
+<div class="mb-3">
+<label for="email" class="form-label">Correo Electrónico</label>
+<input type="email" class="form-control" id="email" name="email" placeholder="nombre@ejemplo.com" required>
+<div class="invalid-feedback">Por favor, ingresa un correo electrónico válido.</div>
+</div>
+<!-- Contraseña -->
+<div class="mb-3">
+<label for="password" class="form-label">Contraseña</label>
+<input type="password" class="form-control" id="password" name="password" required>
+<div class="invalid-feedback">Debes ingresar tu contraseña.</div>
+<!-- Nota informativa sobre recuperación -->
+<div class="form-text text-muted">Nota: La contraseña no es recuperable.</div>
+</div>
+<!-- Recordar Sesión (Check) -->
+<div class="mb-3 form-check">
+<input type="checkbox" class="form-check-input" id="rememberMe" name="rememberMe">
+<label class="form-check-label" for="rememberMe">Mantener la sesión abierta</label>
+</div>
+<!-- Botón de Envío -->
+<div class="d-grid gap-2">
+<button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+</div>
+</form></div>
+<div class="tab-pane fade" id="register-tab-pane" role="tabpanel" aria-labelledby="register-tab" tabindex="0"> <form id="registroForm" class="needs-validation" novalidate>
+<!-- Usuario -->
+<div class="mb-3">
+<label for="usuario" class="form-label">Nombre de Usuario</label>
+<input type="text" class="form-control" id="usuario" name="usuario" placeholder="Ej: juanito123" required>
+<div class="invalid-feedback">Por favor, ingresa un nombre de usuario.</div>
+</div>
+<!-- Correo -->
+<div class="mb-3">
+<label for="correo" class="form-label">Correo Electrónico</label>
+<input type="email" class="form-control" id="correo" name="correo" placeholder="correo@ejemplo.com" required>
+<div class="invalid-feedback">Ingresa un correo electrónico válido.</div>
+</div>
+<!-- Contraseña -->
+<div class="mb-3">
+<label for="password" class="form-label">Contraseña</label>
+<input type="password" class="form-control" id="password" name="password" minlength="6" required>
+<div class="invalid-feedback">La contraseña debe tener al menos 6 caracteres.</div>
+</div>
+<!-- Confirmar Contraseña -->
+<div class="mb-3">
+<label for="confirmPassword" class="form-label">Confirmar Contraseña</label>
+<input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+<div id="passwordError" class="text-danger small d-none">Las contraseñas no coinciden.</div>
+</div>
+<div class="d-grid">
+<button type="submit" class="btn btn-primary">Registrarse</button>
+</div>
+</form></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+<script type="module" src="./dist/app.js"></script><script type="module" src="./dist/home.js"></script></body>
+</html>
