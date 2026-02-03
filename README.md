@@ -79,15 +79,17 @@ La gestión de seguridad se ha centralizado en **Cloudflare Zero Trust** para ev
 
 ---
 
-## 📊 Monitorización de Métricas
+## 📉 Verificación de Monitorización
 
-La plataforma monitoriza el estado de la máquina y los contenedores para prevenir saturación de CPU/RAM:
+Para demostrar el cumplimiento de los requisitos, se han implementado dos canales de métricas:
 
-*   **Prometheus:** Recolecta métricas cada 30 segundos (intervalo optimizado).
-*   **Grafana:** Panel de control visual.
-    *   **URL:** `https://grafana.orwinzavaleta.dpdns.org`
-    *   **Credenciales:** Ver archivo `.env` para contraseña de `admin`.
-*   **Node Exporter:** Analiza el hardware del host ignorando sistemas de archivos de Docker para reducir el uso de recursos.
+1.  **Métricas de Host:** El servicio `node-exporter` mapea el sistema de archivos del host en modo solo lectura, permitiendo visualizar la carga real del hardware en el dashboard "Node Exporter Full".
+2.  **Métricas de Proxy (Tráfico HTTP):** El servicio `nginx-exporter` se conecta al socket de estatus de Nginx. Proporciona datos verificables sobre:
+    *   Número de peticiones HTTP por segundo.
+    *   Conexiones activas y en espera.
+    *   Estado de salud del proxy inverso.
+
+Todos estos datos son consultables de forma agregada en Grafana (`https://grafana.orwinzavaleta.dpdns.org`).
 
 ---
 
