@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 30s     # Optimizado para no saturar la CPU
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: 'servidor'
+    static_configs:
+      - targets: ['node-exporter:9100']

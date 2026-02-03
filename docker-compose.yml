@@ -1,0 +1,126 @@
+networks:
+  proxy-net:
+    name: proxy-net
+  monitoring-net:
+    name: monitoring-net
+    internal: true
+  apps-net:
+    name: apps-net
+    driver: bridge
+    attachable: true  # <--- Fundamental para que los alumnos se conecten
+
+services:
+  # --- 1. TÚNEL DE CLOUDFLARE (Tu entrada al mundo) ---
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
+    command: tunnel --no-autoupdate run
+    networks:
+      - proxy-net
+
+  # --- 2. PROXY INVERSO (El recepcionista) ---
+  nginx-proxy:
+    image: jwilder/nginx-proxy:latest
+    container_name: nginx-proxy
+    # NOTA: No exponemos puertos al host (80:80) porque entra por el túnel.
+    # Esto es más seguro y evita ataques directos a la IP.
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./nginx/vhost:/etc/nginx/vhost.d
+      - ./nginx/html:/usr/share/nginx/html
+    environment:
+      # Optimizaciones para evitar errores 502/504 en apps pesadas
+      - PROXY_BUFFERS_NUMBER=16
+      - PROXY_BUFFER_SIZE=32k
+      - CLIENT_MAX_BODY_SIZE=100m
+    networks:
+      - proxy-net
+      - apps-net
+    restart: unless-stopped
+
+  # --- 3. (LEGACY) COMPAÑERO DE LET'S ENCRYPT ---
+  # Esta sección se mantiene con fines educativos para demostrar
+  # cómo se hacía la gestión de certificados antes de usar Cloudflare Tunnels.
+  # Actualmente está desactivada porque Cloudflare gestiona el SSL en el Edge.
+  #
+  # letsencrypt-companion:
+  #   image: jrcs/letsencrypt-nginx-proxy-companion
+  #   container_name: letsencrypt-companion
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - ./certs:/etc/nginx/certs:rw
+  #     - ./nginx/vhost:/etc/nginx/vhost.d:rw
+  #     - ./nginx/html:/usr/share/nginx/html:rw
+  #   environment:
+  #     - NGINX_PROXY_CONTAINER=nginx-proxy
+  #   depends_on:
+  #     - nginx-proxy
+  #   networks:
+  #     - proxy-net
+  #   restart: unless-stopped
+
+  # --- 4. GESTIÓN: PORTAINER ---
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    # Forzamos HTTP para evitar conflictos con el SSL de Cloudflare
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./portainer_data:/data
+    environment:
+      # Cambia 'tudominio.com' por tu dominio real (ej: orwinzavaleta.dpdns.org)
+      - VIRTUAL_HOST=portainer.orwinzavaleta.dpdns.org
+      - VIRTUAL_PORT=9000
+      - VIRTUAL_PROTO=http
+    networks:
+      - proxy-net
+    restart: unless-stopped
+
+  # --- 5. MONITORIZACIÓN (STACK LIGERO) ---
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - monitoring-net
+      - proxy-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      # Ajusta esto a tu dominio real
+      - GF_SERVER_ROOT_URL=https://grafana.orwinzavaleta.dpdns.org
+      - GF_SERVER_DOMAIN=grafana.orwinzavaleta.dpdns.org
+      - VIRTUAL_HOST=grafana.orwinzavaleta.dpdns.org
+      - VIRTUAL_PORT=3000
+    volumes:
+      - ./grafana_data:/var/lib/grafana
+    networks:
+      - monitoring-net
+      - proxy-net
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    # Filtros para que no consuma CPU escaneando carpetas de Docker
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - monitoring-net
+    restart: unless-stopped
