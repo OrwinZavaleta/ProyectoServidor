@@ -1,0 +1,61 @@
+# Nombre del workflow que aparecerá en la pestaña "Actions" de GitHub
+name: Build and Push to Docker Hub
+
+# 1. EVENTO DISPARADOR: Cuándo se ejecuta este workflow
+on:
+  push:
+    branches:
+      - main  # Se ejecuta cuando hay un 'push' en la rama 'main'
+  # Opcional: También podrías ejecutarlo manualmente desde la interfaz de GitHub
+  workflow_dispatch:
+
+# 2. DEFINICIÓN DE TRABAJOS (JOBS)
+jobs:
+  # Nombre del trabajo. Puede ser "build" o cualquier otro.
+  build-and-push:
+    # El tipo de máquina virtual donde se ejecutará (siempre la última versión de Ubuntu)
+    runs-on: ubuntu-latest
+
+    # 3. PERMISOS (Recomendado para seguridad, aunque no siempre obligatorio para Docker Hub)
+    permissions:
+      contents: read
+      # packages: write # Necesario si usas GitHub Container Registry (GHCR), no para Docker Hub
+
+    # 4. PASOS (STEPS): La secuencia de acciones a realizar
+    steps:
+      # PASO 1: Checkout del código
+      # Descarga una copia del código de tu repositorio para que el workflow pueda trabajar con él.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # PASO 2: Iniciar sesión en Docker Hub
+      # Se autentica en Docker Hub usando un token de acceso personal (PAT) para poder subir la imagen.
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # PASO 3: Configurar Docker Buildx
+      # Buildx es un componente moderno de Docker que permite construir imágenes con funciones avanzadas
+      # (como caché multi-etapa y multi-plataforma). Es una buena práctica usarlo.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # PASO 4: Construir y subir la imagen a Docker Hub
+      # Este es el paso principal. Construye la imagen usando el Dockerfile y la sube al repositorio configurado.
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          # Contexto de construcción: el directorio donde está el código (por defecto, el raíz del repo)
+          context: .
+          # Subir la imagen al registro después de construirla (a Docker Hub, en este caso)
+          push: true
+          # Las etiquetas (tags) que tendrá la imagen.
+          # Se usa el nombre de usuario de Docker Hub y el nombre del repositorio de GitHub.
+          tags: ${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:latest
+          # --- MEJORAS DE RENDIMIENTO (BUENAS PRÁCTICAS) ---
+          # Configuración de caché para acelerar builds posteriores.
+          # La opción 'type=gha' utiliza la infraestructura de GitHub Actions para almacenar la caché.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
