@@ -16,9 +16,9 @@ jobs:
     # El tipo de máquina virtual donde se ejecutará (siempre la última versión de Ubuntu)
     runs-on: ubuntu-latest
 
-    # 3. PERMISOS (Recomendado para seguridad, aunque no siempre obligatorio para Docker Hub)
+    # 3. PERMISOS
     permissions:
-      contents: read
+      contents: write  # Se necesita 'write' para poder hacer push del archivo VERSION actualizado
       # packages: write # Necesario si usas GitHub Container Registry (GHCR), no para Docker Hub
 
     # 4. PASOS (STEPS): La secuencia de acciones a realizar
@@ -47,8 +47,17 @@ jobs:
       - name: Set lowercase image name
         run: echo "IMAGE_NAME=$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+      # PASO 3.6: Leer la versión actual del archivo VERSION
+      - name: Read current version
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "current=$VERSION" >> $GITHUB_OUTPUT
+          echo "La versión actual es: v$VERSION"
+
       # PASO 4: Construir y subir la imagen a Docker Hub
       # Este es el paso principal. Construye la imagen usando el Dockerfile y la sube al repositorio configurado.
+      # Se etiqueta con la versión actual (ej: v1.0) y con 'latest' para que siempre apunte a la última imagen.
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -57,10 +66,36 @@ jobs:
           # Subir la imagen al registro después de construirla (a Docker Hub, en este caso)
           push: true
           # Las etiquetas (tags) que tendrá la imagen.
-          # Se usa el nombre de usuario de Docker Hub y el nombre del repositorio de GitHub (en minúsculas).
-          tags: ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          # Se etiqueta con la versión (ej: v1.0) y con 'latest' para la última imagen.
+          tags: |
+            ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:v${{ steps.version.outputs.current }}
+            ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
           # --- MEJORAS DE RENDIMIENTO (BUENAS PRÁCTICAS) ---
           # Configuración de caché para acelerar builds posteriores.
           # La opción 'type=gha' utiliza la infraestructura de GitHub Actions para almacenar la caché.
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # PASO 5: Incrementar la versión para el próximo build
+      # Incrementa la versión menor (1.0 → 1.1 → 1.2, etc.) y hace commit/push del archivo VERSION actualizado.
+      - name: Bump version for next build
+        run: |
+          VERSION="${{ steps.version.outputs.current }}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+
+          if ! [[ "$MINOR" =~ ^[0-9]+$ ]]; then
+            echo "Error: formato de versión inválido en VERSION ($VERSION)"
+            exit 1
+          fi
+
+          NEW_MINOR=$((MINOR + 1))
+          NEW_VERSION="$MAJOR.$NEW_MINOR"
+          echo "$NEW_VERSION" > VERSION
+          echo "Versión actualizada: v$VERSION → v$NEW_VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "ci: bump version to v$NEW_VERSION [skip ci]"
+          git push
