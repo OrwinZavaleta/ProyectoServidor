@@ -1,0 +1,77 @@
+name: Discord Notifications
+
+on:
+  # 1. Evento: Pull Request
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+
+  # 2. Evento: Push a main
+  push:
+    branches:
+      - main
+
+  # 3. Evento: Finalización del workflow de Docker
+  workflow_run:
+    workflows: ["Build and Push to Docker Hub"]   # Nombre exacto del workflow a monitorear
+    types:
+      - completed
+
+jobs:
+  notify-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord notification for PR
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: |
+            **📢 Pull Request ${{ github.event.action }}** en `${{ github.repository }}`
+            **Título:** ${{ github.event.pull_request.title }}
+            **Autor:** ${{ github.event.pull_request.user.login }}
+            **URL:** ${{ github.event.pull_request.html_url }}
+
+  notify-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord notification for push to main
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: |
+            **🚀 Push a `main`** en `${{ github.repository }}`
+            **Commit:** `${{ github.sha }}`
+            **Mensaje:** ${{ github.event.head_commit.message }}
+            **URL:** ${{ github.event.head_commit.url }}
+
+  notify-deployment:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set status emoji and text
+        id: status
+        run: |
+          CONCLUSION="${{ github.event.workflow_run.conclusion }}"
+          if [[ "$CONCLUSION" == "success" ]]; then
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+            echo "text=Éxito" >> $GITHUB_OUTPUT
+          else
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+            echo "text=Fallo" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Discord notification for workflow completion
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: |
+            **📦 Workflow `${{ github.event.workflow_run.name }}` finalizado:** ${{ steps.status.outputs.emoji }} ${{ steps.status.outputs.text }}
+            **Rama:** ${{ github.event.workflow_run.head_branch }}
+            **Conclusión:** ${{ steps.status.outputs.text }}
+            **URL de los logs:** ${{ github.event.workflow_run.html_url }}
