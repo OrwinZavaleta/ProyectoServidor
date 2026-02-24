@@ -22,9 +22,13 @@ jobs:
   notify-pr:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions: {}
+    concurrency:
+      group: notify-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     steps:
       - name: Send Discord notification for PR
-        uses: Ilshidur/action-discord@master
+        uses: Ilshidur/action-discord@0.4.0
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
@@ -37,9 +41,13 @@ jobs:
   notify-push:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions: {}
+    concurrency:
+      group: notify-push-${{ github.sha }}
+      cancel-in-progress: false
     steps:
       - name: Send Discord notification for push to main
-        uses: Ilshidur/action-discord@master
+        uses: Ilshidur/action-discord@0.4.0
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
@@ -50,13 +58,15 @@ jobs:
             **URL:** ${{ github.event.head_commit.url }}
 
   notify-deployment:
-    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != ''
+    if: github.event_name == 'workflow_run'
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Set status emoji and text
         id: status
+        env:
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: |
-          CONCLUSION="${{ github.event.workflow_run.conclusion }}"
           if [[ "$CONCLUSION" == "success" ]]; then
             echo "emoji=✅" >> $GITHUB_OUTPUT
             echo "text=Éxito" >> $GITHUB_OUTPUT
@@ -66,12 +76,11 @@ jobs:
           fi
 
       - name: Send Discord notification for workflow completion
-        uses: Ilshidur/action-discord@master
+        uses: Ilshidur/action-discord@0.4.0
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
           args: |
             **📦 Workflow `${{ github.event.workflow_run.name }}` finalizado:** ${{ steps.status.outputs.emoji }} ${{ steps.status.outputs.text }}
             **Rama:** ${{ github.event.workflow_run.head_branch }}
-            **Conclusión:** ${{ steps.status.outputs.text }}
             **URL de los logs:** ${{ github.event.workflow_run.html_url }}
