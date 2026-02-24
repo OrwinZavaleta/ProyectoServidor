@@ -4,6 +4,7 @@
 
 # --- Secretos ---
 .env
+.env.example
 
 # --- Datos Locales ---
 portainer_data/
@@ -16,7 +17,11 @@ README.md
 LICENSE
 docs/
 
-# --- Otros ---
-Dockerfile
+# --- Archivos de infraestructura (no son parte de la app) ---
 docker-compose.yml
 .dockerignore
+create-user.sh
+
+# --- Archivos dentro de aplicacion-prueba que no necesita el contenedor ---
+aplicacion-prueba/Dockerfile
+aplicacion-prueba/docker-compose.yml
