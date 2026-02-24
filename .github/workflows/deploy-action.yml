@@ -42,6 +42,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # PASO 3.5: Convertir el nombre del repositorio a minúsculas
+      # Docker exige que el nombre del repositorio en las etiquetas sea todo en minúsculas.
+      - name: Set lowercase image name
+        run: echo "IMAGE_NAME=$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       # PASO 4: Construir y subir la imagen a Docker Hub
       # Este es el paso principal. Construye la imagen usando el Dockerfile y la sube al repositorio configurado.
       - name: Build and push Docker image
@@ -52,8 +57,8 @@ jobs:
           # Subir la imagen al registro después de construirla (a Docker Hub, en este caso)
           push: true
           # Las etiquetas (tags) que tendrá la imagen.
-          # Se usa el nombre de usuario de Docker Hub y el nombre del repositorio de GitHub.
-          tags: ${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:latest
+          # Se usa el nombre de usuario de Docker Hub y el nombre del repositorio de GitHub (en minúsculas).
+          tags: ${{ vars.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
           # --- MEJORAS DE RENDIMIENTO (BUENAS PRÁCTICAS) ---
           # Configuración de caché para acelerar builds posteriores.
           # La opción 'type=gha' utiliza la infraestructura de GitHub Actions para almacenar la caché.
