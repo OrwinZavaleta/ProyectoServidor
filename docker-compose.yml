@@ -27,8 +27,13 @@ services:
     container_name: nginx-proxy
     # NOTA: No exponemos puertos al host (80:80) porque entra por el túnel.
     # Esto es más seguro y evita ataques directos a la IP.
+    # Para usar ACME/Let's Encrypt, expón 80/443 en el host.
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs:rw
       - ./nginx/vhost:/etc/nginx/vhost.d
       - ./nginx/html:/usr/share/nginx/html
       - ./nginx/status.conf:/etc/nginx/conf.d/status.conf:ro
@@ -88,6 +93,8 @@ services:
       - VIRTUAL_HOST=portainer.${HOSTNAME}
       - VIRTUAL_PORT=9000
       - VIRTUAL_PROTO=http
+      - LETSENCRYPT_HOST=portainer.${HOSTNAME}
+      - LETSENCRYPT_EMAIL=${ACME_EMAIL}
     networks:
       - proxy-net
     restart: unless-stopped
@@ -123,6 +130,8 @@ services:
       - GF_SERVER_DOMAIN=grafana.${HOSTNAME}
       - VIRTUAL_HOST=grafana.${HOSTNAME}
       - VIRTUAL_PORT=3000
+      - LETSENCRYPT_HOST=grafana.${HOSTNAME}
+      - LETSENCRYPT_EMAIL=${ACME_EMAIL}
     volumes:
       - ./grafana_data:/var/lib/grafana
     depends_on:
