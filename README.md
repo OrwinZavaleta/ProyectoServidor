@@ -88,6 +88,8 @@ Si quieres usar certificados con `letsencrypt-companion`, no basta solo con come
 1. Publicar y abrir puertos `80/443` (ya definidos en `nginx-proxy`).
 2. Definir `ACME_EMAIL` en `.env`.
 3. Configurar `LETSENCRYPT_HOST` y `LETSENCRYPT_EMAIL` en cada servicio publicado.
+4. Activar la sección `letsencrypt-companion` (está en el mismo `docker-compose.yml` como bloque comentado "LEGACY").
+5. Crear `./certs` con permisos restringidos y propiedad compatible con Docker antes del primer arranque (ejemplo: `mkdir -p certs && chown root:root certs && chmod 750 certs`). Si cambias usuario/grupo de ejecución de contenedores, ajusta el `chown` para que `letsencrypt-companion` pueda escribir y `nginx-proxy` pueda leer.
 
 ---
 

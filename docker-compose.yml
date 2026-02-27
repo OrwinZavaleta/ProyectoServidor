@@ -25,15 +25,15 @@ services:
   nginx-proxy:
     image: jwilder/nginx-proxy:latest
     container_name: nginx-proxy
-    # NOTA: No exponemos puertos al host (80:80) porque entra por el túnel.
-    # Esto es más seguro y evita ataques directos a la IP.
-    # Para usar ACME/Let's Encrypt, expón 80/443 en el host.
+    # Puertos publicados para soportar validación ACME/Let's Encrypt.
+    # En modo Cloudflare Tunnel no son estrictamente necesarios.
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - /var/run/docker.sock:/tmp/docker.sock:ro
-      - ./certs:/etc/nginx/certs:rw
+      # nginx-proxy solo lee certificados; letsencrypt-companion escribe en este mismo volumen.
+      - ./certs:/etc/nginx/certs:ro
       - ./nginx/vhost:/etc/nginx/vhost.d
       - ./nginx/html:/usr/share/nginx/html
       - ./nginx/status.conf:/etc/nginx/conf.d/status.conf:ro
