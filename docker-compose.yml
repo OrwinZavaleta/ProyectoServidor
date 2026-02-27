@@ -84,8 +84,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./portainer_data:/data
     environment:
-      # Cambia 'tudominio.com' por tu dominio real (ej: orwinzavaleta.dpdns.org)
-      - VIRTUAL_HOST=portainer.orwinzavaleta.dpdns.org
+      # Cambia 'tudominio.com' por tu dominio real (ej: ${HOSTNAME})
+      - VIRTUAL_HOST=portainer.${HOSTNAME}
       - VIRTUAL_PORT=9000
       - VIRTUAL_PROTO=http
     networks:
@@ -119,9 +119,9 @@ services:
     container_name: grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin123
-      - GF_SERVER_ROOT_URL=https://grafana.orwinzavaleta.dpdns.org
-      - GF_SERVER_DOMAIN=grafana.orwinzavaleta.dpdns.org
-      - VIRTUAL_HOST=grafana.orwinzavaleta.dpdns.org
+      - GF_SERVER_ROOT_URL=https://grafana.${HOSTNAME}
+      - GF_SERVER_DOMAIN=grafana.${HOSTNAME}
+      - VIRTUAL_HOST=grafana.${HOSTNAME}
       - VIRTUAL_PORT=3000
     volumes:
       - ./grafana_data:/var/lib/grafana
