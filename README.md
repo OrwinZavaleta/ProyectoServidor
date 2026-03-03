@@ -76,8 +76,8 @@ El despliegue está optimizado para ser un proceso de "Subir y Arrancar" (Copy &
 
 Si usas `serversideup/php:8.4-frankenphp` con PostgreSQL, revisa estos puntos para evitar fallos al desplegar:
 
-1. `command: &gt;` es inválido en YAML (eso es HTML escapado). Debe ser `command: >`.
-2. `depends_on` por sí solo **no** espera a que PostgreSQL esté listo; añade `healthcheck` y `condition: service_healthy`.
+1. `command: &gt;` es inválido en YAML (eso viene de codificación HTML). Debe ser `command: >`.
+2. `depends_on` por sí solo **no** espera a que PostgreSQL esté listo; añade `healthcheck` en `db` y `condition: service_healthy` en `app`.
 3. Si `HOSTNAME` no está definido, `VIRTUAL_HOST=app.${HOSTNAME}` queda mal formado.
 4. No declares volúmenes no usados (`caddy_data`, `caddy_config`) si ese stack no usa Caddy.
 5. Si una red es `external: true`, debe existir antes (`docker network create apps-net` / `proxy-net`).
@@ -91,7 +91,7 @@ services:
     environment:
       - POSTGRES_DB=laravel_db
       - POSTGRES_USER=laravel_user
-      - POSTGRES_PASSWORD=mi_password_seguro
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     command: >
       postgres
       -c shared_buffers=24MB
@@ -100,7 +100,7 @@ services:
       -c maintenance_work_mem=8MB
       -c autovacuum=off
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U laravel_user -d laravel_db"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -111,11 +111,13 @@ services:
       db:
         condition: service_healthy
     environment:
-      - APP_URL=http://prietoeats.${HOSTNAME}
+      - APP_URL=http://app.${HOSTNAME}
       - DB_CONNECTION=pgsql
       - DB_HOST=db
       - DB_PORT=5432
 ```
+
+Define `POSTGRES_PASSWORD` en tu `.env`, mantenlo fuera de control de versiones (incluye `.env` en `.gitignore`) y usa `$$` en `healthcheck` para escapar variables de entorno dentro de `docker compose`.
 
 ---
 
