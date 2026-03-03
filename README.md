@@ -72,6 +72,51 @@ El despliegue está optimizado para ser un proceso de "Subir y Arrancar" (Copy &
     ```
 3.  **Lanzar:** Acceder por SSH y ejecutar `docker compose up -d`.
 
+### Ejemplo corregido: Laravel 12 + FrankenPHP + PostgreSQL
+
+Si usas `serversideup/php:8.4-frankenphp` con PostgreSQL, revisa estos puntos para evitar fallos al desplegar:
+
+1. `command: &gt;` es inválido en YAML (eso es HTML escapado). Debe ser `command: >`.
+2. `depends_on` por sí solo **no** espera a que PostgreSQL esté listo; añade `healthcheck` y `condition: service_healthy`.
+3. Si `HOSTNAME` no está definido, `VIRTUAL_HOST=app.${HOSTNAME}` queda mal formado.
+4. No declares volúmenes no usados (`caddy_data`, `caddy_config`) si ese stack no usa Caddy.
+5. Si una red es `external: true`, debe existir antes (`docker network create apps-net` / `proxy-net`).
+
+Referencia mínima (fragmento):
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=laravel_db
+      - POSTGRES_USER=laravel_user
+      - POSTGRES_PASSWORD=mi_password_seguro
+    command: >
+      postgres
+      -c shared_buffers=24MB
+      -c max_connections=10
+      -c work_mem=2MB
+      -c maintenance_work_mem=8MB
+      -c autovacuum=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U laravel_user -d laravel_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: serversideup/php:8.4-frankenphp
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - APP_URL=http://prietoeats.${HOSTNAME}
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+```
+
 ---
 
 ## 🔒 Dominios y Certificados SSL
