@@ -11,15 +11,15 @@ networks:
 
 services:
   # --- 1. TÚNEL DE CLOUDFLARE (Tu entrada al mundo) ---
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: cloudflared
-    restart: unless-stopped
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
-    command: tunnel --no-autoupdate run
-    networks:
-      - proxy-net
+#  cloudflared:
+#    image: cloudflare/cloudflared:latest
+#    container_name: cloudflared
+#    restart: unless-stopped
+#    environment:
+#      - TUNNEL_TOKEN=${CLOUDFLARE_TOKEN}
+#    command: tunnel --no-autoupdate run
+#    networks:
+#      - proxy-net
 
   # --- 2. PROXY INVERSO (El recepcionista) ---
   nginx-proxy:
@@ -62,22 +62,22 @@ services:
   # Esta sección se mantiene con fines educativos para demostrar
   # cómo se hacía la gestión de certificados antes de usar Cloudflare Tunnels.
   # Actualmente está desactivada porque Cloudflare gestiona el SSL en el Edge.
-  #
-  # letsencrypt-companion:
-  #   image: jrcs/letsencrypt-nginx-proxy-companion
-  #   container_name: letsencrypt-companion
-  #   volumes:
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #     - ./certs:/etc/nginx/certs:rw
-  #     - ./nginx/vhost:/etc/nginx/vhost.d:rw
-  #     - ./nginx/html:/usr/share/nginx/html:rw
-  #   environment:
-  #     - NGINX_PROXY_CONTAINER=nginx-proxy
-  #   depends_on:
-  #     - nginx-proxy
-  #   networks:
-  #     - proxy-net
-  #   restart: unless-stopped
+
+  letsencrypt-companion:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: letsencrypt-companion
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/etc/nginx/certs:rw
+      - ./nginx/vhost:/etc/nginx/vhost.d:rw
+      - ./nginx/html:/usr/share/nginx/html:rw
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+    depends_on:
+      - nginx-proxy
+    networks:
+      - proxy-net
+    restart: unless-stopped
 
   # --- 4. GESTIÓN: PORTAINER ---
   portainer:
