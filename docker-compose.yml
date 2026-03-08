@@ -38,10 +38,17 @@ services:
       - ./nginx/html:/usr/share/nginx/html
       - ./nginx/status.conf:/etc/nginx/conf.d/status.conf:ro
     environment:
-      # Optimizaciones para evitar errores 502/504 en apps pesadas
+      # === LÍMITE DE UPLOAD (Global para todos los contenedores) ===
+      - CLIENT_MAX_BODY_SIZE=100M
+
+      # === OPTIMIZACIONES PARA UPLOADS GRANDES ===
       - PROXY_BUFFERS_NUMBER=16
       - PROXY_BUFFER_SIZE=32k
-      - CLIENT_MAX_BODY_SIZE=100m
+      - PROXY_BUSY_BUFFERS_SIZE=64k
+
+      # === TIEMPOS DE ESPERA (evitar timeout en uploads lentos) ===
+      - PROXY_READ_TIMEOUT=300
+      - PROXY_SEND_TIMEOUT=300
     networks:
       - proxy-net
       - apps-net
