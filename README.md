@@ -3,12 +3,37 @@
 Infraestructura basada en Docker para el alojamiento de aplicaciones web. Incluye un proxy inverso dinámico, gestión automática de certificados SSL (ACME/Let's Encrypt) y un stack de monitorización.
 
 ## Tabla de Contenidos
-1. [Requisitos de Red](#requisitos-de-red)
-2. [Gestión de Usuarios](#gestión-de-usuarios)
-3. [Despliegue de Aplicaciones](#despliegue-de-aplicaciones)
-4. [Dominios y Certificados SSL](#dominios-y-certificados-ssl)
-5. [Monitorización](#monitorización)
-6. [Mantenimiento](#mantenimiento)
+1. [Arquitectura](#arquitectura)
+2. [Requisitos de Red](#requisitos-de-red)
+3. [Gestión de Usuarios](#gestión-de-usuarios)
+4. [Despliegue de Aplicaciones](#despliegue-de-aplicaciones)
+5. [Dominios y Certificados SSL](#dominios-y-certificados-ssl)
+6. [Monitorización](#monitorización)
+7. [Mantenimiento](#mantenimiento)
+
+---
+
+## Arquitectura
+
+La plataforma se organiza en cuatro capas funcionales que se comunican a través de tres redes Docker aisladas.
+
+### Capas funcionales
+
+- **Entrada (Ingress):** `nginx-proxy` actúa como proxy inverso. Escucha en los puertos `80` y `443`, detecta automáticamente los contenedores activos a través del socket de Docker y enruta el tráfico según el nombre de host virtual (`VIRTUAL_HOST`). `letsencrypt-companion` opera junto a él para emitir y renovar certificados SSL de forma automática. Como alternativa, el bloque `cloudflared` permite sustituir este mecanismo cuando los puertos no pueden exponerse directamente a internet.
+
+- **Aplicaciones:** Las aplicaciones de los usuarios se despliegan como servicios Docker conectados a la red `apps-net`. Al declarar `VIRTUAL_HOST` en sus variables de entorno, el proxy las detecta y las publica automáticamente bajo un subdominio propio, sin necesidad de tocar la configuración central.
+
+- **Gestión:** Portainer proporciona una interfaz web para administrar los contenedores del servidor. Se publica a través del mismo proxy inverso.
+
+- **Monitorización:** Prometheus recoge métricas del sistema operativo (`node-exporter`) y del proxy (`nginx-exporter`) cada 30 segundos. Grafana consume esas métricas y las presenta en dashboards accesibles desde el navegador.
+
+### Redes Docker
+
+| Red | Tipo | Propósito |
+|---|---|---|
+| `proxy-net` | Bridge | Comunicación entre el proxy, los servicios internos y el exterior |
+| `apps-net` | Bridge attachable | Red compartida entre el proxy y las aplicaciones de los usuarios |
+| `monitoring-net` | Bridge (interno) | Red aislada para el stack de monitorización |
 
 ---
 
