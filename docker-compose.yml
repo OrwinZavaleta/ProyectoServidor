@@ -65,10 +65,9 @@ services:
       - nginx-proxy
     restart: unless-stopped
 
-  # --- 3. (LEGACY) COMPAÑERO DE LET'S ENCRYPT ---
-  # Esta sección se mantiene con fines educativos para demostrar
-  # cómo se hacía la gestión de certificados antes de usar Cloudflare Tunnels.
-  # Actualmente está desactivada porque Cloudflare gestiona el SSL en el Edge.
+  # --- 3. COMPAÑERO DE LET'S ENCRYPT (ACME) ---
+  # Gestiona la emisión y renovación automática de certificados SSL mediante Let's Encrypt.
+  # Requiere que los puertos 80 y 443 sean accesibles desde internet.
 
   letsencrypt-companion:
     image: jrcs/letsencrypt-nginx-proxy-companion

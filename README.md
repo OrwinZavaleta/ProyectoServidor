@@ -1,59 +1,63 @@
-# Plataforma de Despliegue Automatizada (Zero Configuration)
+# Plataforma de Despliegue con Docker
 
-Este proyecto implementa una infraestructura basada en Docker para el alojamiento de aplicaciones web con despliegue automatizado. La solución utiliza un proxy inverso dinámico, un túnel seguro de Cloudflare para saltar restricciones de red (como CGNAT) y un stack completo de monitorización para asegurar la visibilidad de los servicios.
+Infraestructura basada en Docker para el alojamiento de aplicaciones web. Incluye un proxy inverso dinámico, gestión automática de certificados SSL (ACME/Let's Encrypt) y un stack de monitorización.
 
-## 📋 Tabla de Contenidos
+## Tabla de Contenidos
 1. [Requisitos de Red](#requisitos-de-red)
-2. [Gestión de Usuarios (Automatizada)](#gestión-de-usuarios-automatizada)
+2. [Gestión de Usuarios](#gestión-de-usuarios)
 3. [Despliegue de Aplicaciones](#despliegue-de-aplicaciones)
 4. [Dominios y Certificados SSL](#dominios-y-certificados-ssl)
-5. [Monitorización de Métricas](#verificación-de-monitorización)
-6. [Mantenimiento Básico](#mantenimiento-básico)
+5. [Monitorización](#monitorización)
+6. [Mantenimiento](#mantenimiento)
 
 ---
 
-## 🌐 Requisitos de Red
+## Requisitos de Red
 
-Para el correcto funcionamiento de la plataforma en entornos restringidos (redes móviles o redes corporativas), se han definido los siguientes requisitos:
+- **Puertos HTTP/HTTPS:** `80` y `443` deben estar abiertos y accesibles desde internet (necesarios para la validación ACME/Let's Encrypt).
+- **Puerto SSH:** `22` para administración y transferencia de archivos (SCP).
+- El servidor necesita conectividad saliente a internet.
 
-*   **Conectividad Saliente:** El servidor requiere acceso a internet para establecer la conexión con el túnel de Cloudflare.
-*   **Puertos de Entrada HTTP/HTTPS:**
-    *   **Modo Cloudflare Tunnel:** `80/443` no requieren apertura en el router.
-    *   **Modo ACME/Let's Encrypt:** `80/443` deben estar publicados en el host y abiertos en el router/firewall.
-    *   `22`: Puerto SSH para administración y subida de archivos (SCP).
-*   **Arquitectura de Túnel:** La comunicación se realiza mediante un túnel cifrado de salida, eliminando la necesidad de IP pública dedicada o Port Forwarding.
+> **Modo alternativo (Cloudflare Tunnel):** Si la red no permite exponer puertos directamente (CGNAT, redes corporativas), es posible usar `cloudflared`. En ese caso `80/443` no necesitan apertura en el router. Ver la sección [Dominios y Certificados SSL](#dominios-y-certificados-ssl).
 
 ---
 
-## 👥 Gestión de Usuarios (Automatizada)
+## Gestión de Usuarios
 
-La creación de cuentas para alumnos o despliegues secundarios se realiza mediante un script de automatización que garantiza que el entorno tenga los permisos y la estructura de carpetas necesaria.
+La creación de usuarios se realiza mediante un script que configura el entorno necesario para que el usuario pueda desplegar contenedores.
 
 ### Crear un nuevo usuario
-Para dar de alta a un alumno, ejecuta el script proporcionado con privilegios de root:
 
 ```bash
-sudo ./setup_deploy_user_easy.sh <nombre_usuario>
+sudo ./create-user.sh <nombre_usuario>
 ```
 
-**Este script realiza automáticamente:**
-1.  Creación del usuario con shell `/bin/bash`.
-2.  Configuración de la contraseña por defecto: `1234`.
-3.  Asignación al grupo `docker` para permitir la gestión de contenedores sin sudo.
-4.  Creación del directorio de trabajo: `/home/<usuario>/apps`.
+El script realiza automáticamente:
+1. Creación del usuario con shell `/bin/bash`.
+2. Contraseña por defecto: `1234`.
+3. Asignación al grupo `docker`.
+4. Creación del directorio de trabajo: `/home/<usuario>/apps`.
 
 ---
 
-## 🚀 Despliegue de Aplicaciones
+## Despliegue de Aplicaciones
 
-El despliegue está optimizado para ser un proceso de "Subir y Arrancar" (Copy & Up).
+### Flujo de trabajo
 
-### Flujo de trabajo para el alumno:
-1.  **Subir archivos:** Utilizar SCP para mover el proyecto a la carpeta de aplicaciones.
+1. **Obtener el dominio base.** Pregunta a quien desplegó la infraestructura cuál es el dominio base asignado. Lo necesitarás para configurar tu `.env` y tu `docker-compose.yml`.
+
+2. **Crear el archivo `.env`** en la raíz de tu proyecto con el dominio base:
+    ```env
+    ALUMNO=tu-nombre
+    HOSTNAME=tudominio.com
+    ```
+
+3. **Subir el proyecto al servidor** mediante SCP:
     ```bash
     scp -r ./mi-proyecto usuario@ip-servidor:~/apps/
     ```
-2.  **Preparar el Docker Compose:** El archivo debe conectarse a la red `apps-net` (externa) y definir su dominio y su puerto si no se usa el por defecto.
+
+4. **Preparar el `docker-compose.yml`** de tu aplicación. Debe conectarse a la red `apps-net` (externa) y declarar el subdominio usando la variable `${HOSTNAME}`:
     ```yaml
     services:
       web:
@@ -61,8 +65,10 @@ El despliegue está optimizado para ser un proceso de "Subir y Arrancar" (Copy &
         container_name: ${ALUMNO}-app
         restart: unless-stopped
         environment:
-          - VIRTUAL_HOST=${ALUMNO}.orwinzavaleta.dpdns.org
+          - VIRTUAL_HOST=${ALUMNO}.${HOSTNAME}
           - VIRTUAL_PORT=80
+          - LETSENCRYPT_HOST=${ALUMNO}.${HOSTNAME}
+          - LETSENCRYPT_EMAIL=tu-email@ejemplo.com
         networks:
           - apps-net
 
@@ -70,66 +76,69 @@ El despliegue está optimizado para ser un proceso de "Subir y Arrancar" (Copy &
       apps-net:
         external: true
     ```
-3.  **Lanzar:** Acceder por SSH y ejecutar `docker compose up -d`.
+
+5. **Lanzar la aplicación** desde el servidor:
+    ```bash
+    docker compose up -d
+    ```
+
+Tu aplicación quedará disponible en `https://<tu-nombre>.<dominio-base>`.
 
 ---
 
-## 🔒 Dominios y Certificados SSL
+## Dominios y Certificados SSL
 
-La gestión de seguridad se ha centralizado en **Cloudflare Zero Trust** para evitar colisiones de certificados locales.
+Por defecto, la plataforma usa **ACME / Let's Encrypt** a través de `letsencrypt-companion` para gestionar los certificados SSL automáticamente.
 
-*   **SSL:** Cloudflare gestiona el cifrado de extremo a extremo. El túnel establece una conexión gRPC segura hacia el Edge de Cloudflare.
-*   **Wildcard DNS:** Se ha configurado un registro comodín (`*`) que apunta al túnel. Esto permite que cualquier subdominio nuevo definido en un `VIRTUAL_HOST` sea accesible instantáneamente sin intervención del administrador.
+Para que funcione correctamente:
+- Los puertos `80` y `443` deben ser accesibles desde internet.
+- Cada servicio publicado debe definir `LETSENCRYPT_HOST` y `LETSENCRYPT_EMAIL`.
+- El directorio `./certs` debe existir con los permisos adecuados antes del primer arranque:
+  ```bash
+  mkdir -p certs && chown root:root certs && chmod 750 certs
+  ```
 
-### Cambio a ACME / Let's Encrypt (sin Cloudflare Tunnel)
+### Alternativa: Cloudflare Tunnel
 
-Si quieres usar certificados con `letsencrypt-companion`, no basta solo con comentar `cloudflared` y descomentar `letsencrypt-companion`: también necesitas:
+Si los puertos no pueden exponerse directamente, es posible sustituir ACME por un túnel de Cloudflare. Para ello:
 
-1. Publicar y abrir puertos `80/443` (ya definidos en `nginx-proxy`).
-2. Definir `ACME_EMAIL` en `.env`.
-3. Configurar `LETSENCRYPT_HOST` y `LETSENCRYPT_EMAIL` en cada servicio publicado.
-4. Activar la sección `letsencrypt-companion` (está en el mismo `docker-compose.yml` como bloque comentado "LEGACY").
-5. Crear `./certs` con permisos restringidos y propiedad compatible con Docker antes del primer arranque (ejemplo: `mkdir -p certs && chown root:root certs && chmod 750 certs`). Si cambias usuario/grupo de ejecución de contenedores, ajusta el `chown` para que `letsencrypt-companion` pueda escribir y `nginx-proxy` pueda leer.
-
----
-
-## 📉 Verificación de Monitorización
-
-Para demostrar el cumplimiento de los requisitos, se han implementado dos canales de métricas:
-
-1.  **Métricas de Host:** El servicio `node-exporter` mapea el sistema de archivos del host en modo solo lectura, permitiendo visualizar la carga real del hardware en el dashboard "Node Exporter Full".
-2.  **Métricas de Proxy (Tráfico HTTP):** El servicio `nginx-exporter` se conecta al socket de estatus de Nginx. Proporciona datos verificables sobre:
-    *   Número de peticiones HTTP por segundo.
-    *   Conexiones activas y en espera.
-    *   Estado de salud del proxy inverso.
-
-Todos estos datos son consultables de forma agregada en Grafana (`https://grafana.orwinzavaleta.dpdns.org`).
-
-### 🔧 Gestión Automática de Permisos (Self-Healing)
-El servicio de Grafana requiere permisos específicos de usuario (ID 472) para escribir en su base de datos SQLite. Para mantener la filosofía "Zero Configuration" y evitar comandos manuales (`chown`) en el host:
-
-1.  Se ha implementado un contenedor efímero `fix-grafana-perms` (basado en Alpine Linux).
-2.  Este servicio se ejecuta previo al arranque de Grafana, ajustando los permisos del volumen `./grafana_data` automáticamente.
-3.  Esto garantiza que el despliegue funcione en cualquier máquina host independientemente de su configuración de usuarios nativa.
+1. Comentar el bloque `letsencrypt-companion` en `docker-compose.yml`.
+2. Descomentar el bloque `cloudflared` y configurar `CLOUDFLARE_TOKEN` en `.env`.
+3. En ese caso, Cloudflare gestiona el SSL en el edge y no es necesario `LETSENCRYPT_HOST` en los servicios.
 
 ---
 
-## 🛠️ Mantenimiento Básico
+## Monitorización
 
-### Comandos de Administración
+La plataforma incluye:
+
+- **`node-exporter`**: métricas del sistema operativo (CPU, memoria, disco).
+- **`nginx-exporter`**: métricas del proxy inverso (peticiones por segundo, conexiones activas).
+- **Grafana**: dashboards accesibles en `https://grafana.<dominio-base>`.
+
+### Gestión de Permisos de Grafana
+
+Grafana requiere que el volumen `./grafana_data` pertenezca al usuario con ID 472. El servicio `fix-grafana-perms` se encarga de ajustar estos permisos automáticamente antes del arranque, sin necesidad de intervención manual.
+
+---
+
+## Mantenimiento
+
 ```bash
-# Iniciar toda la infraestructura
+# Iniciar la infraestructura
 docker compose up -d
 
-# Detener servicios sin borrar contenedores
+# Detener los servicios
 docker compose stop
 
-# Reinicio tras cambios en el archivo .env o YAML
+# Aplicar cambios en .env o docker-compose.yml
 docker compose up -d --force-recreate
 ```
 
-### Gestión de Errores
-Si un servicio no es accesible tras el despliegue, verificar los logs en orden:
-1.  `docker logs cloudflared` (Estado del túnel).
-2.  `docker logs nginx-proxy` (Mapeo de dominios).
-3.  `docker stats` (Uso de recursos en tiempo real).
+### Diagnóstico de errores
+
+Si un servicio no es accesible, revisa los logs en este orden:
+
+1. `docker logs nginx-proxy` — mapeo de dominios y configuración del proxy.
+2. `docker logs letsencrypt-companion` — emisión y renovación de certificados.
+3. `docker stats` — uso de recursos en tiempo real.
