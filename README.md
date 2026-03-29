@@ -109,6 +109,53 @@ El script realiza automáticamente:
 
 Tu aplicación quedará disponible en `https://<tu-nombre>.<dominio-base>`.
 
+### Ejemplo corregido: Laravel 12 + FrankenPHP + PostgreSQL
+
+Si usas `serversideup/php:8.4-frankenphp` con PostgreSQL, revisa estos puntos para evitar fallos al desplegar:
+
+1. `command: &gt;` es inválido en YAML (eso viene de codificación HTML). Debe ser `command: >`.
+2. `depends_on` por sí solo **no** espera a que PostgreSQL esté listo; añade `healthcheck` en `db` y `condition: service_healthy` en `app`.
+3. Si `HOSTNAME` no está definido, `VIRTUAL_HOST=app.${HOSTNAME}` queda mal formado.
+4. No declares volúmenes no usados (`caddy_data`, `caddy_config`) si ese stack no usa Caddy.
+5. Si una red es `external: true`, debe existir antes (`docker network create apps-net` / `proxy-net`).
+
+Referencia mínima (fragmento):
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=laravel_db
+      - POSTGRES_USER=laravel_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    command: >
+      postgres
+      -c shared_buffers=24MB
+      -c max_connections=10
+      -c work_mem=2MB
+      -c maintenance_work_mem=8MB
+      -c autovacuum=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    image: serversideup/php:8.4-frankenphp
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - APP_URL=http://app.${HOSTNAME}
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+```
+
+Define `POSTGRES_PASSWORD` en tu `.env`, mantenlo fuera de control de versiones (incluye `.env` en `.gitignore`) y usa `$$` en `healthcheck` para escapar variables de entorno dentro de `docker compose`.
+
 ---
 
 ## Dominios y Certificados SSL
